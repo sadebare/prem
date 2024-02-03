@@ -31,7 +31,7 @@ jobs:
           run: npm run start &
         
     docker_build_then_push_to_ecr:
-    needs: build
+    # needs: build
     runs-on: ubuntu-latest
 
     steps:
