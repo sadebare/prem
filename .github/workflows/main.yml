@@ -30,34 +30,37 @@ jobs:
           # - this uses the startscript in the script file
           run: npm run start &
         
-    # docker_build_then_push_to_ecr_and_ecs:
-    #   runs-on: ubuntu-latest
+    docker_build_then_push_to_ecr:
+    needs: build
+    runs-on: ubuntu-latest
 
-    #   steps:
-    #     - name: Check out code from branch again to build into Docker image
-    #       uses: actions/checkout@v2
+    steps:
+      - name: Check out code from branch again to build into Docker image
+        uses: actions/checkout@v2
 
-    #     - name: Reconfirm Current Branch and Current Environment
-    #       run: echo "Current Branch and Environment is:" ${{ github.ref_name }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{secrets.AWS_REGION}}
 
-    #     - name: Configure AWS credentials
-    #       uses: aws-actions/configure-aws-credentials@v1
-    #       with:
-    #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    #         aws-region: ${{vars.AWS_REGION}}
+      - name: Login to Amazon ECR
+        id: ecr-login-id #this is an id for this step. So u can use the id to ref d step later in d workflow.
+        uses: aws-actions/amazon-ecr-login@v1
 
-    #     - name: Login to Amazon ECR
-    #       id: ecr-login-id #this is an id for this step. So u can use the id to ref d step later in d workflow.
-    #       uses: aws-actions/amazon-ecr-login@v1
 
-    #     - name: Build Docker Image, tag and push image to ECR
-    #       id: builder_pusher
-    #       env:   # here we r creating env vars n assigning values to them.
-    #         ECR_REGISTRY: ${{ steps.ecr-login-id.outputs.registry }}
-    #         IMAGE_TAG: ${{github.run_id}}
-    #         ECR_REPOSITORY: ${{vars.ECR_REPOSITORY}}
-    #       run: |
-    #         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-    #         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-    #         echo "::set-output name=built_image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Build Docker image
+        run: docker build -t prembly:$GITHUB_SHA .
+
+      - name: Tag Docker image with "latest"
+        run: |
+           DOCKER_TAG=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest
+           docker tag prembly:$GITHUB_SHA $DOCKER_TAG
+           docker tag prembly:$GITHUB_SHA ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA
+        
+      - name: Push Docker image to ECR
+        run: |
+            docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest
+            docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA
