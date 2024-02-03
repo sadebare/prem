@@ -7,80 +7,55 @@ on:
   workflow_dispatch: # manual runs of the pipeline.
 
 jobs:
-    build: # this is the first job - to build the application first with npm
-      runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout code from branch  # 1st step in this build JOB - to see if the app will build.
-          uses: actions/checkout@v2
+    steps:
+      - name: Checkout code from branch
+        uses: actions/checkout@v2
 
-        - name: Install Node.js # set up environment for node build
-          uses: actions/setup-node@v2
-          with:
-            node-version: 16.15
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.15
 
-        - name: Install dependencies # install dependencies by force
-          run: npm install
+      - name: Install dependencies
+        run: npm install
 
-        - name: Build # try to build node
-          # - this uses the build script in the script file
-          run: npm run build
+      - name: Build
+        run: npm run build
 
-        - name: Start #  start the server
-          # - this uses the startscript in the script file
-          run: npm run start &
-        
-    docker_build_then_push_to_ecr:
-      needs: build
-      runs-on: ubuntu-latest
+      - name: Start
+        run: npm run start &
 
-      steps:
-        - name: Check out code from branch again to build into Docker image
-          uses: actions/checkout@v2
+  docker_build_then_push_to_ecr:
+    needs: build
+    runs-on: ubuntu-latest
 
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v1
-          with:
-            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            aws-region: ${{secrets.AWS_REGION}}
+    steps:
+      - name: Check out code from branch again to build into Docker image
+        uses: actions/checkout@v2
 
-        - name: Login to Amazon ECR
-          id: login-ecr #this is an id for this step. So u can use the id to ref d step later in d workflow.
-          uses: aws-actions/amazon-ecr-login@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA .
 
-        # - name: Build Docker image
-        #   run: docker build -t prembly:$GITHUB_SHA .
+      - name: Tag Docker image with "latest" and GITHUB_SHA
+        run: |
+          docker tag ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest
+          docker tag ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA
 
-        # - name: Tag Docker image with "latest"
-        #   run: |
-        #       # DOCKER_TAG="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest"
-        #       docker tag prembly:$GITHUB_SHA "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest"
-        #       docker tag prembly:$GITHUB_SHA "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA"  
-        
-        # - name: Push Docker image to ECR
-        #   run: |
-        #       docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest
-        #       docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA
-        - name: Build, tag, and push image to Amazon ECR
-          env:
-            ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            ECR_REPOSITORY: prembly
-            IMAGE_TAG: $GITHUB_SHA
-            ADDITIONAL_TAG: latest  # Additional tag to push
-
-          run: |
-            # Build the Docker image
-            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-
-            # Tag the Docker image with the original tag
-            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-            # Tag the Docker image with the additional tag
-            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$ADDITIONAL_TAG
-
-            # Push the Docker image with both tags
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ADDITIONAL_TAG
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA
