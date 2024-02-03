@@ -56,8 +56,8 @@ jobs:
 
         - name: Tag Docker image with "latest"
           run: |
-              DOCKER_TAG="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest"
-              docker tag prembly:$GITHUB_SHA $DOCKER_TAG
+              # DOCKER_TAG="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest"
+              docker tag prembly:$GITHUB_SHA "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:latest"
               docker tag prembly:$GITHUB_SHA "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/prembly:$GITHUB_SHA"          
         - name: Push Docker image to ECR
           run: |
