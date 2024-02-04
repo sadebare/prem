@@ -1,0 +1,24 @@
+---
+- name: Configure Nginx Server
+  hosts: localhost  # This playbook will run tasks on the localhost
+
+  tasks:
+    - name: Install Nginx
+      become: true
+      apt:
+        name: nginx  
+
+    - name: Copy Nginx configuration file
+      become: true
+      template:
+        src: nginx.conf.j2  # Create a Jinja2 template for Nginx configuration
+        dest: /etc/nginx/nginx.conf
+      notify:
+        - Restart Nginx
+
+  handlers:
+    - name: Restart Nginx
+      become: true
+      service:
+        name: nginx
+        state: restarted
